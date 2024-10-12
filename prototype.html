@@ -1,0 +1,362 @@
+<!-- JS Final Project -->
+<!-- Pac Boy Game Author: Gomer Caasi -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pac Boy Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Controls instructions -->
+    <div id = "controls">
+        <p>Controls:</p>
+        <ul>
+            <li>W = UP</li>
+            <li>D = DOWN</li>
+            <li>A = LEFT</li>
+            <li>S = RIGHT</li>
+        </ul>
+
+        <p>Time Lapsed: <span id="time-lapsed">00:00:00</span></p>
+        <p>Score: <span id="score">0</span> </p>
+
+        <p>Press F5 to restart game.</p>
+    </div>
+
+    <div id="gameOver">
+        <p>Huli ka Pac Boy!</p>
+    </div>
+
+    <!-- Main Container and default positions -->
+    <div id = "container" >
+        <img id = "hero" src="assets/charDefault.png" alt="Hero">
+
+    <!-- adding obstacles using loop-->
+    <script>
+        let placements = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,0,0,0,0,0,0,0,0,0,0,2,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1],
+            [1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1],
+            [1,0,0,1,1,2,0,0,0,0,0,1,1,0,0,1],
+            [1,0,0,1,1,0,1,0,0,1,0,1,1,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,0,1,1,0,1,0,0,1,0,1,1,0,0,1],
+            [1,0,0,1,1,0,0,0,0,0,2,1,1,0,0,1],
+            [1,0,0,1,1,1,1,0,0,1,1,1,1,0,0,1],
+            [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,2,0,0,0,0,0,0,0,0,0,0,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        //spawn point for enemies and obstacles
+        for (let i = 0; i < placements.length; i++) {
+            for (let j = 0; j < placements[i].length; j++) {
+                if (placements[i][j] == 1) {
+                    document.getElementById("container").innerHTML += "<img id = 'rocks' class='obstacle' src='assets/obstacleRock1.png' style='left: " + j * 50 + "px; top: " + i * 50 + "px;' alt='Obstacle'>";
+                }
+                if (placements[i][j] == 2) {
+                    document.getElementById("container").innerHTML += "<img id = 'enemySpawn' class='enemy' src='assets/enemyDefault.png' style='left: " + j * 50 + "px; top: " + i * 50 + "px;' alt='Enemy'>";
+                }
+            }
+        }
+
+        //spawn point for items
+        var item1Score = 10;
+        var item2Score = 20;
+
+        function spawnItem () {
+            let container = document.getElementById('container');
+            for (let i = 0; i < placements.length; i++) {
+                for (let j = 0; j < placements[i].length; j++) {
+                    if (placements[i][j] == 0) { //<--spawn items only on non-obstacles
+                        let itemSpawnRand = Math.random();
+                        if (itemSpawnRand < 0.02) { //<-- this is the probability of spawning of the item
+                            let itemType = Math.random() < 0.02 ? 1 : 2 ; //<-- 1 = item1, 2 = item2 with 2% chance
+                            let itemScore = itemType === 1 ? item1Score : item2Score; //<-- scores based on item type
+                            let itemSrc = itemType === 1 ? "assets/item1.png" : "assets/item2.png";
+                            container.innerHTML += "<img id = 'itemSpawn' class='item' data-score='" + itemScore + "' src='" + itemSrc + "' style='left: " + j * 50 + "px; top: " + i * 50 + "px;' alt='Item'>"
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+
+    </div>
+
+    <!-- Behavior -->
+    <script type="text/javascript">
+        // hero behavior
+        // hero default position
+        var heroHorDefVal = 380;
+        var heroVerDefVal = 370;
+        var heroUpAnimation = ["assets/heroCharUp1.png", "assets/heroCharUp2.png", "assets/heroCharUp3.png", "assets/heroCharUp4.png"];
+        var heroDownAnimation = ["assets/heroCharDown2.png", "assets/heroCharDown3.png", "assets/heroCharDown4.png", "assets/charDefault.png"];
+        var heroLeftAnimation = ["assets/heroCharLeft1.png", "assets/heroCharLeft2.png", "assets/heroCharLeft3.png", "assets/heroCharLeft4.png"];
+        var heroRightAnimation = ["assets/heroCharRight1.png", "assets/heroCharRight2.png", "assets/heroCharRight3.png", "assets/heroCharRight4.png"];
+
+        // hero animation based on the key pressed (0 default)
+        var heroCurrentFrameUp = 0;
+        var heroCurrentFrameDown = 0;
+        var heroCurrentFrameLeft = 0;
+        var heroCurrentFrameRight = 0;  
+
+        // collision detection
+        function checkCollision(newX, newY) {
+            let obstacles = document.getElementsByClassName("obstacle");
+            for (let i = 0; i < obstacles.length; i++) {
+                let obstacle = obstacles[i];
+                let obsLeft = parseInt(obstacle.style.left);
+                let obsTop = parseInt(obstacle.style.top);
+                if (newX < obsLeft + 30 && newX + 30 > obsLeft && newY < obsTop + 30 && newY + 30 > obsTop) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        //enemy collision detection
+        function checkEnemyCollision(heroLeft, heroTop) {
+            let enemies = document.getElementsByClassName('enemy');
+            for (let i = 0; i < enemies.length; i++) {
+                let enemy = enemies[i];
+                let enemyLeft = parseInt(enemy.style.left);
+                let enemyTop = parseInt(enemy.style.top);
+                // Check if the hero collides with an enemy or if an enemy collides with the hero
+                if ((heroLeft < enemyLeft + 30 && heroLeft + 30 > enemyLeft && heroTop < enemyTop + 30 && heroTop + 30 > enemyTop) ||
+                    (enemyLeft < heroLeft + 30 && enemyLeft + 30 > heroLeft && enemyTop < heroTop + 30 && enemyTop + 30 > heroTop)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // hero movement
+        function heroMovement(event) {
+            let newHeroHorDefVal = heroHorDefVal;
+            let newHeroVerDefVal = heroVerDefVal;
+
+            if (event.keyCode === 87 && heroVerDefVal > 0) { // W key (up)
+                newHeroVerDefVal -= 6;
+                if (!checkCollision(newHeroHorDefVal, newHeroVerDefVal)) { //<-- check if the hero is colliding with an obstacle
+                    heroVerDefVal = newHeroVerDefVal;
+                    document.getElementById("hero").src = heroUpAnimation[heroCurrentFrameUp];
+                    heroCurrentFrameUp = (heroCurrentFrameUp + 1) % heroUpAnimation.length;
+                }
+            } else if (event.keyCode === 83 && heroVerDefVal < 800) { // S key (down)
+                newHeroVerDefVal += 6;
+                if (!checkCollision(newHeroHorDefVal, newHeroVerDefVal)) {
+                    heroVerDefVal = newHeroVerDefVal;
+                    document.getElementById("hero").src = heroDownAnimation[heroCurrentFrameDown];
+                    heroCurrentFrameDown = (heroCurrentFrameDown + 1) % heroDownAnimation.length;
+                }
+            } else if (event.keyCode === 65 && heroHorDefVal > 0) { // A key (left)
+                newHeroHorDefVal -= 6;
+                if (!checkCollision(newHeroHorDefVal, newHeroVerDefVal)) {
+                    heroHorDefVal = newHeroHorDefVal;
+                    document.getElementById("hero").src = heroLeftAnimation[heroCurrentFrameLeft];
+                    heroCurrentFrameLeft = (heroCurrentFrameLeft + 1) % heroLeftAnimation.length;
+                }
+            } else if (event.keyCode === 68 && heroHorDefVal < 800) { // D key (right)
+                newHeroHorDefVal += 6;
+                if (!checkCollision(newHeroHorDefVal, newHeroVerDefVal)) {
+                    heroHorDefVal = newHeroHorDefVal;
+                    document.getElementById("hero").src = heroRightAnimation[heroCurrentFrameRight];
+                    heroCurrentFrameRight = (heroCurrentFrameRight + 1) % heroRightAnimation.length;
+                }
+            }
+
+            if (checkEnemyCollision(newHeroHorDefVal, newHeroVerDefVal)) {
+                gameOver();
+                return;
+            }
+
+            document.getElementById("hero").style.left = heroHorDefVal + "px"; // Change the position of the hero horizontally
+            document.getElementById("hero").style.top = heroVerDefVal + "px"; // Change the position of the hero vertically
+        }
+
+        document.onkeydown = function(event) { //<-- call the heroMovement function when a key is pressed
+            heroMovement(event);
+        }
+
+    //enemy behavior
+        var enemyUpAnimation = ["assets/enemyCharUp1.png", "assets/enemyCharUp2.png", "assets/enemyCharUp3.png", "assets/enemyCharUp4.png"];
+        var enemyDownAnimation = ["assets/enemyCharDown2.png", "assets/enemyCharDown3.png", "assets/enemyCharDown4.png", "assets/enemyDefault.png"];
+        var enemyLeftAnimation = ["assets/enemyCharLeft1.png", "assets/enemyCharLeft2.png", "assets/enemyCharLeft3.png", "assets/enemyCharLeft4.png"];
+        var enemyRightAnimation = ["assets/enemyCharRight1.png", "assets/enemyCharRight2.png", "assets/enemyCharRight3.png", "assets/enemyCharRight4.png"];
+
+        var enemyCurrentFrameUp = 0;
+        var enemyCurrentFrameDown = 0;
+        var enemyCurrentFrameLeft = 0;
+        var enemyCurrentFrameRight = 0;
+
+        function checkLineOfSight(enemyLeft, enemyTop, heroLeft, heroTop, range) {  //<-- check if the enemy is in line of sight with the hero
+            return Math.abs(heroLeft - enemyLeft) <= range && Math.abs(heroTop - enemyTop) <= range;
+        }
+
+        function enemyMovement() {
+            let enemies = document.getElementsByClassName("enemy");
+            for (let i = 0; i < enemies.length; i++) {
+                let enemy = enemies[i];
+                let enemyLeft = parseInt(enemy.style.left);
+                let enemyTop = parseInt(enemy.style.top);
+
+                var enemySpeed = 5;
+                var range = 650;
+
+                let heroLeft = parseInt(document.getElementById("hero").style.left);
+                let heroTop = parseInt(document.getElementById("hero").style.top);
+
+                let newEnemyLeft = enemyLeft;
+                let newEnemyTop = enemyTop;
+
+                if (checkLineOfSight(enemyLeft, enemyTop, heroLeft, heroTop, range)) {
+                    enemySpeed = 8;
+                    if (heroLeft > enemyLeft) { //<--enemy moving to the right
+                        newEnemyLeft += enemySpeed;
+                        enemy.src = enemyRightAnimation[enemyCurrentFrameRight];
+                        enemyCurrentFrameRight = (enemyCurrentFrameRight + 1) % enemyRightAnimation.length;
+                    } else if (heroLeft < enemyLeft) {  //<--enemy moving to the left
+                        newEnemyLeft -= enemySpeed;
+                        enemy.src = enemyLeftAnimation[enemyCurrentFrameLeft];
+                        enemyCurrentFrameLeft = (enemyCurrentFrameLeft + 1) % enemyLeftAnimation.length;
+                    }
+
+                    if (heroTop > enemyTop) {  //<--enemy moving down
+                        newEnemyTop += enemySpeed;
+                        enemy.src = enemyDownAnimation[enemyCurrentFrameDown];
+                        enemyCurrentFrameDown = (enemyCurrentFrameDown + 1) % enemyDownAnimation.length;
+                    } else if (heroTop < enemyTop) {  //<--enemy moving up
+                        newEnemyTop -= enemySpeed;
+                        enemy.src = enemyUpAnimation[enemyCurrentFrameUp];
+                        enemyCurrentFrameUp = (enemyCurrentFrameUp + 1) % enemyUpAnimation.length;
+                    }
+                } else {
+                    let enemyDirection = Math.floor(Math.random() * 4); //<--enemy moving randomly
+                    switch (enemyDirection) {
+                        case 0: // UP
+                            if (enemyTop > 0) {
+                                newEnemyTop -= enemySpeed;
+                                enemy.src = enemyUpAnimation[enemyCurrentFrameUp];
+                                enemyCurrentFrameUp = (enemyCurrentFrameUp + 1) % enemyUpAnimation.length;
+                            }
+                            break;
+                        case 1: // DOWN
+                            if (enemyTop < 540) {
+                                newEnemyTop += enemySpeed;
+                                enemy.src = enemyDownAnimation[enemyCurrentFrameDown];
+                                enemyCurrentFrameDown = (enemyCurrentFrameDown + 1) % enemyDownAnimation.length;
+                            }
+                            break;
+                        case 2: // LEFT
+                            if (enemyLeft > 0) {
+                                newEnemyLeft -= enemySpeed;
+                                enemy.src = enemyLeftAnimation[enemyCurrentFrameLeft];
+                                enemyCurrentFrameLeft = (enemyCurrentFrameLeft + 1) % enemyLeftAnimation.length;
+                            }
+                            break;
+                        case 3: // RIGHT
+                            if (enemyLeft < 560) {
+                                newEnemyLeft += enemySpeed;
+                                enemy.src = enemyRightAnimation[enemyCurrentFrameRight];
+                                enemyCurrentFrameRight = (enemyCurrentFrameRight + 1) % enemyRightAnimation.length;
+                            }
+                            break;
+                    }
+                }
+
+                if (!checkCollision(newEnemyLeft, newEnemyTop)) { //<-- if there is no collision
+                    enemy.style.left = newEnemyLeft + "px";
+                    enemy.style.top = newEnemyTop + "px";
+                }
+            }    
+        }
+
+        
+        function collectItem() {
+            let items = document.getElementsByClassName("item");
+            const heroLeft = parseInt(document.getElementById("hero").style.left);
+            const heroTop = parseInt(document.getElementById("hero").style.top);
+            const buffer = 15; // Adjust this value as needed
+
+            let itemsToRemove = [];
+            for (let i = 0; i < items.length; i++) {
+                let item = items[i];
+                let itemLeft = parseInt(item.style.left);
+                let itemTop = parseInt(item.style.top);
+
+                // Check for bounding box overlap
+                if ((heroLeft < itemLeft + buffer && heroLeft + buffer > itemLeft && heroTop < itemTop + buffer && heroTop + buffer > itemTop) ||
+                    (itemLeft < heroLeft + buffer && itemLeft + buffer > heroLeft && itemTop < heroTop + buffer && itemTop + buffer > heroTop)){
+                    itemsToRemove.push(item); // Add item to remove list
+                }
+            }
+
+            // Remove items after iterating through all
+            for (let item of itemsToRemove) {
+                let score = parseInt(document.getElementById("score").innerText);
+                score += parseInt(item.getAttribute("data-score"));
+                document.getElementById("score").innerText = score;
+                item.remove();
+            }
+        }   
+
+        spawnItem();
+
+        var enemyMovementInterval = setInterval(enemyMovement, 150); 
+        var collectItemInterval = setInterval(collectItem, 50);
+        var spawnItemInterval = setInterval(spawnItem, 10000); //<-- spawn item every 10 seconds
+
+        //Timer
+        let startTime, timeInterval;
+
+        //Format the time to HH:MM:SS by calculating time in hours, minutes, and seconds
+        function formatTime(time) {
+            let hours = Math.floor(time / 3600);
+            let minutes = Math.floor((time % 3600) / 60);
+            let seconds = Math.floor(time % 60);
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        //Update the timer display
+        function updateTime() {
+            let time = Math.floor((Date.now() - startTime) / 1000); //<-- compute time in seconds
+            document.getElementById("time-lapsed").innerText = formatTime(time);
+        }
+
+        //Start the timer
+        function startTimer() {
+            startTime = Date.now(); //<-- get current time in seconds
+            timeInterval = setInterval(updateTime, 1000); //<-- update timer every second
+        }
+
+        //Stop the timer
+        function stopTimer() {
+            clearInterval(timeInterval);
+        }
+
+        document.addEventListener("DOMContentLoaded", function() { //<--this is to make sure that the timer starts after the page loads/restarts
+            startTimer();
+        });
+        
+        // game over behavior
+        function gameOver() {
+            document.getElementById("gameOver").style.display = 'block';
+            document.onkeydown = null; // Disable hero movement
+            clearInterval(enemyMovementInterval); // Stop enemy movement
+            clearInterval(spawnItemInterval); // Stop item spawning
+            stopTimer();
+        }
+    </script>
+</body>
+</html>
+
+<!-- Game end -->
